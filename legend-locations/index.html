@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legendary Locations</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a roster of the 45 beside a grid of place cards; the progress site's tokens */
+:root {
+  --bg: #eef1f4; --surface: #ffffff; --sunk: #e3e8ee; --ink: #17202b; --muted: #566273; --line: #cfd7e1;
+  --accent: #2b4fa3; --accent-soft: #dfe7f7; --ring: #d9a400; --ok: #1f7a4d; --ok-soft: #d7efe1;
+  --sinnoh: #2b6f8f; --sinnoh-soft: #d5e8f0; --johto: #b8860b; --johto-soft: #f2e2b3;
+  --display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #11161d; --surface: #19202a; --sunk: #222b37; --ink: #e6ebf1; --muted: #9aa6b6; --line: #2f3a48;
+    --accent: #8fb0f5; --accent-soft: #233150; --ring: #f2c94c; --ok: #6fcf97; --ok-soft: #1d3a2b;
+    --sinnoh: #7cc3e0; --sinnoh-soft: #1c3440; --johto: #e3b341; --johto-soft: #4a3d17; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #11161d; --surface: #19202a; --sunk: #222b37; --ink: #e6ebf1; --muted: #9aa6b6; --line: #2f3a48;
+  --accent: #8fb0f5; --accent-soft: #233150; --ring: #f2c94c; --ok: #6fcf97; --ok-soft: #1d3a2b;
+  --sinnoh: #7cc3e0; --sinnoh-soft: #1c3440; --johto: #e3b341; --johto-soft: #4a3d17; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1480px; margin: 0 auto; padding-block: 20px 48px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1 { font-family: var(--display); font-weight: 700; font-size: 34px; line-height: 1.1; margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { color: var(--muted); max-width: 70ch; margin: 6px 0 0; }
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px 24px; margin-bottom: 16px; }
+.tally { display: flex; gap: 18px; font-family: var(--display); font-size: 15px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.tally b { display: block; font-size: 28px; color: var(--ink); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.status { font-size: 13px; color: var(--muted); min-height: 1.5em; }
+.status.err { color: #c23b32; }
+.layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 880px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+/* roster */
+.roster { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); max-height: calc(100vh - 24px); overflow: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+@media (max-width: 880px) { .roster { position: static; max-height: none; } }
+.roster h2 { font-family: var(--display); font-size: 14px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 10px 0 4px; }
+.roster h2:first-child { margin-top: 0; }
+.mon { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 6px; align-items: center; width: 100%; text-align: left;
+  background: none; border: 1px solid transparent; border-radius: 8px; padding: 2px 6px; color: inherit; font: inherit; cursor: pointer; }
+.mon:hover { background: var(--sunk); }
+.mon:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.mon.sel { border-color: var(--accent); background: var(--accent-soft); }
+.mon img { width: 36px; height: 36px; image-rendering: pixelated; }
+.mon .n { font-weight: 700; font-size: 14px; line-height: 1.2; }
+.mon .w { font-size: 12px; color: var(--muted); line-height: 1.25; overflow-wrap: anywhere; }
+.mon .w.set { color: var(--ok); }
+/* filters */
+.filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg button { font: inherit; font-size: 13px; padding: 5px 10px; border: 0; background: none; color: var(--muted); cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--surface); }
+input[type=search] { font: inherit; font-size: 14px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); min-width: 0; flex: 1 1 180px; max-width: 320px; }
+.brush { font-size: 13px; color: var(--muted); }
+.brush b { color: var(--accent); }
+/* cards */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; min-width: 0; }
+.card.has { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok) inset; }
+.shot { position: relative; aspect-ratio: 4 / 3; background: var(--sunk); max-width: 100%; }
+.shot img { width: 100%; height: 100%; object-fit: cover; display: block; image-rendering: pixelated; }
+.shot .none { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.id { position: absolute; top: 6px; left: 6px; font-family: var(--mono); font-size: 12px; font-weight: 600; background: rgba(0,0,0,.6); color: #fff; padding: 1px 6px; border-radius: 4px; }
+.kind { position: absolute; top: 6px; right: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; background: var(--surface); color: var(--muted); }
+.kind.set-piece { color: var(--ring); }
+.kind.hidden-room { color: var(--accent); }
+.kind.tucked-away { color: var(--ok); }
+html.framed h1 { display: none; }  /* inside the progress site's tab, which has the heading */
+.local { display: none; margin: 0 0 14px; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; font-size: 14px; }
+.local.on { display: block; }
+.local p { margin: 0 0 8px; color: var(--muted); max-width: 90ch; }
+.local p.hint { font-size: 13px; }
+.local .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.local button { font: inherit; font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+.local button.plain { background: none; color: var(--accent); }
+.local a { color: var(--accent); }
+.local textarea { width: 100%; min-height: 120px; margin-top: 8px; font-family: var(--mono); font-size: 12px; background: var(--sunk); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.place { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.place b { font-family: var(--display); font-size: 19px; font-weight: 600; line-height: 1.15; }
+.reg { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; padding: 1px 6px; border-radius: 4px; white-space: nowrap; }
+.reg.Sinnoh { background: var(--sinnoh-soft); color: var(--sinnoh); }
+.reg.Johto { background: var(--johto-soft); color: var(--johto); }
+.cap { font-size: 13.5px; color: var(--muted); margin: 0; }
+.tile { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.spot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.spot .moved { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 700; }
+.nudge { display: inline-flex; gap: 2px; margin-left: auto; }
+.nudge button { font: inherit; font-size: 12px; line-height: 1; min-width: 26px; height: 26px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; }
+.nudge button:hover { border-color: var(--accent); }
+.nudge button.reset { min-width: auto; padding: 0 6px; color: var(--accent); }
+.shot .mark { position: absolute; width: 6.25%; height: 8.333%; transform: translate(-50%, -50%); border: 2px dashed #22d3ee; border-radius: 4px; box-shadow: 0 0 0 1px #000; pointer-events: none; }
+.chip { display: inline-flex; align-items: center; gap: 4px; background: var(--ok-soft); color: var(--ink); border-radius: 999px; padding: 1px 4px 1px 2px; font-size: 13px; font-weight: 700; }
+.chip img { width: 24px; height: 24px; image-rendering: pixelated; }
+.chip button { border: 0; background: none; color: var(--muted); cursor: pointer; font: inherit; font-size: 15px; line-height: 1; padding: 0 4px; }
+.actions { display: flex; gap: 6px; margin-top: auto; }
+.actions select { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 5px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); }
+.remove { font: inherit; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1px solid var(--line); background: none; color: var(--muted); cursor: pointer; white-space: nowrap; }
+.remove:hover { color: #c23b32; border-color: #c23b32; }
+.card.gone { opacity: .75; border-style: dashed; }
+.actions .here { font: inherit; font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; white-space: nowrap; }
+.empty { color: var(--muted); padding: 24px 0; }
+/* the legendaries the game already places, for reference */
+.ref { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; margin: 0 0 14px; }
+.ref summary { cursor: pointer; padding: 10px 12px; font-family: var(--display); font-size: 17px; font-weight: 600; }
+.ref summary span { font-family: var(--body); font-size: 13px; font-weight: 400; color: var(--muted); margin-left: 6px; }
+.ref .inner { padding: 0 12px 12px; }
+.prop { border-top: 1px solid var(--line); padding: 8px 0; }
+.prop:first-child { border-top: 0; }
+.prop > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; font-weight: 700; }
+.prop > summary::-webkit-details-marker { display: none; }
+.prop > summary::before { content: "▸"; color: var(--muted); width: 1em; }
+.prop[open] > summary::before { content: "▾"; }
+.prop > summary .verdict { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; border-radius: 999px; padding: 1px 8px; background: var(--line); color: var(--ink); }
+.prop > summary .verdict.keep { background: var(--ok-soft); }
+.prop > summary .muted { font-weight: 400; font-size: 13px; }
+.prop[open] > .why { margin-top: 6px; }
+.prop figcaption .but { font-size: 12px; color: var(--muted); font-style: italic; }
+.plan { margin: 0 0 12px; }
+.plan table { border-collapse: collapse; width: 100%; font-size: 13px; }
+.plan th, .plan td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+.plan th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.plan td img { width: 24px; height: 24px; image-rendering: pixelated; vertical-align: middle; }
+.plan .stays { color: var(--muted); }
+.plan .wrap { overflow-x: auto; max-height: 420px; overflow-y: auto; border: 1px solid var(--line); border-radius: 8px; }
+.plan .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0 0; }
+.plan .bar button { font: inherit; font-size: 13px; font-weight: 700; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+.plan .bar button.confirm { background: #c23b32; border-color: #c23b32; }
+.prop .why { margin: 0 0 8px; font-size: 13px; color: var(--muted); }
+.prop .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.prop figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+.prop figure.on { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.prop figure img { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; image-rendering: pixelated; }
+.prop figcaption { padding: 6px 8px 8px; font-size: 13px; line-height: 1.35; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.prop figcaption .tag { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.prop figcaption .warn { font-size: 12px; color: var(--muted); }
+.prop figcaption button { margin-top: auto; align-self: flex-start; font: inherit; font-size: 13px; font-weight: 700; padding: 5px 10px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: var(--surface); cursor: pointer; }
+.prop figcaption button:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+.pic { display: block; width: 100%; aspect-ratio: 4 / 3; background-repeat: no-repeat; image-rendering: pixelated; background-color: #000; }
+.pic.small { width: 128px; }
+.egrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.egrid figure { margin: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--bg, transparent); }
+.egrid img.shot { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; image-rendering: pixelated; }
+.egrid figcaption { padding: 6px 8px 8px; font-size: 13px; line-height: 1.35; }
+.egrid figcaption b { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; }
+.egrid figcaption .muted { display: block; }
+.ref .seg { margin-bottom: 10px; }
+.ref table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.ref th { text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); padding: 4px 6px; border-bottom: 1px solid var(--line); }
+.ref td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ref td.rmon { font-weight: 700; white-space: nowrap; }
+.ref td.rmon .m { display: inline-flex; align-items: center; gap: 6px; }
+.ref td.rmon img { width: 32px; height: 32px; image-rendering: pixelated; }
+.ref .muted { color: var(--muted); }
+.ref .post { font-size: 11px; font-weight: 700; color: var(--accent); margin-left: 6px; }
+.ref .tablewrap { overflow-x: auto; }
+.ref td.pic img { display: block; width: 128px; height: 96px; border-radius: 6px; image-rendering: pixelated; }
+.ref td.pic { width: 140px; }
+@media (max-width: 640px) { .ref td.how, .ref th.how { display: none; } }
+@media (prefers-reduced-motion: no-preference) { .card { transition: border-color .2s; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Legendary Locations</h1>
+      <p class="lede">The places where the 45 static legendaries can stand. In each picture the yellow ring is the spot and the player stands two squares away. Choose a Pokémon for a place from its menu, or pick one in the list and press <i>Set here</i> on a card. <i>Remove</i> takes a place you don't want off the list (Show: Removed brings it back).</p>
+    </div>
+    <div>
+      <div class="tally"><span><b id="nSet">0</b>Pokémon set</span><span><b id="nLeft">45</b>still to place</span><span><b id="nPlaces">0</b>places</span></div>
+      <div class="status" id="status">Loading saved choices…</div>
+    </div>
+  </div>
+  <div class="local on" id="local">
+    <p id="localText" hidden>On this site your choices are kept in this browser only, so Claude can't see them yet. When you're done, press
+    <b>Copy my choices</b> and paste them to Claude in the chat. Or make them on the
+    <a href="https://claude.ai/artifact/YRVGueMLi6m5Ynypdmv1QD" target="_blank" rel="noopener">claude.ai copy of this page</a>,
+    which saves them where Claude reads them. This page started from the choices saved there as of <span id="snapAt">the last site update</span>.</p>
+    <p class="hint">Each card's arrows move its exact spot a square at a time (a dashed square marks it on the picture). <b>Copy my choices</b> gives them as text to paste to Claude; <b>Export</b> saves them as a file.</p>
+    <div class="row"><button type="button" id="copy">Copy my choices</button>
+      <button type="button" id="export">Export (JSON)</button>
+      <button type="button" class="plain" id="reset" hidden>Start over from the saved choices</button>
+      <span class="brush" id="localNote"></span></div>
+    <textarea id="copyText" readonly hidden aria-label="Your choices, to copy"></textarea>
+  </div>
+  <div class="layout">
+    <aside class="roster" id="roster" aria-label="The 45 Pokémon"></aside>
+    <main>
+      <div class="filters">
+        <div class="seg" role="group" aria-label="Region" id="fRegion">
+          <button type="button" data-v="" aria-pressed="true">All regions</button>
+          <button type="button" data-v="Johto/Kanto" aria-pressed="false">Johto &amp; Kanto</button>
+          <button type="button" data-v="Sinnoh" aria-pressed="false">Sinnoh</button>
+        </div>
+        <div class="seg" role="group" aria-label="Kind of place" id="fKind">
+          <button type="button" data-v="" aria-pressed="true">Any place</button>
+          <button type="button" data-v="set piece" aria-pressed="false">Set pieces</button>
+          <button type="button" data-v="chamber" aria-pressed="false">Sealed chambers</button>
+          <button type="button" data-v="hidden room" aria-pressed="false">Hidden rooms</button>
+          <button type="button" data-v="tucked away" aria-pressed="false">Tucked away</button>
+          <button type="button" data-v="nook" aria-pressed="false">Nooks</button>
+        </div>
+        <div class="seg" role="group" aria-label="Show" id="fSet">
+          <button type="button" data-v="" aria-pressed="true">All</button>
+          <button type="button" data-v="open" aria-pressed="false">Open</button>
+          <button type="button" data-v="taken" aria-pressed="false">With a Pokémon</button>
+          <button type="button" data-v="removed" aria-pressed="false">Removed</button>
+        </div>
+        <input type="search" id="q" placeholder="Search places" aria-label="Search places">
+        <span class="brush" id="brush"></span>
+      </div>
+      <details class="ref props" id="props" open><summary>Proposals: ten places for each Pokémon<span id="propsCount"></span></summary>
+        <div class="inner">
+          <p class="lede" style="margin:0 0 8px">Claude's ten places for each of the 45, best first, each looked at in the game: why it fits, and what speaks against it. Each picture is the game itself with the Pokémon moved there. Open a Pokémon to see its ten. <i>Use this</i> sets one, as a card's menu does; <i>Keep</i> puts it back where you had it. A place another Pokémon holds says so: choosing it is a swap.</p>
+          <div class="plan" id="plan"></div>
+          <div id="propsList"></div>
+        </div></details>
+      <details class="ref" id="game"><summary>In the game now<span id="gameCount"></span></summary>
+        <div class="inner">
+          <p class="lede" style="margin:0 0 8px">Each Pokémon as it stands on its spot in the game today, with what it waits for. The player stands two or more squares away.</p>
+          <div class="egrid" id="gameGrid"></div>
+        </div></details>
+      <details class="ref" id="ref"><summary>Placed by the game already<span id="refCount"></span></summary>
+        <div class="inner">
+          <p class="lede" style="margin:0 0 8px">Every legendary and mythical the game itself puts somewhere (not one of the 45 to place here): where it's met and how, from the game's scripts. For reference: these places are taken.</p>
+          <div class="seg" role="group" aria-label="Region" id="refRegion">
+            <button type="button" data-v="" aria-pressed="true">All</button>
+            <button type="button" data-v="Johto" aria-pressed="false">Johto</button>
+            <button type="button" data-v="Kanto" aria-pressed="false">Kanto</button>
+            <button type="button" data-v="Sinnoh" aria-pressed="false">Sinnoh</button>
+          </div>
+          <div class="tablewrap"><table><thead><tr><th>Pokémon</th><th>Region</th><th>Where</th><th class="how">How</th><th>Picture</th></tr></thead><tbody id="refRows"></tbody></table></div>
+        </div></details>
+      <div class="grid" id="grid"></div>
+      <p class="empty" id="empty" hidden>No place matches these filters.</p>
+    </main>
+  </div>
+</div>
+
+<script>
+try { if (window.self !== window.top && /\.github\.io$|^localhost$|^127\.0\.0\.1$/.test(location.hostname)) document.documentElement.classList.add('framed'); } catch (e) {}
+(function () {
+  let LOC = [], ROSTER = [], byId = {};
+  let assign = {};      // place id -> [species]
+  let db = null, canWrite = false, brush = null;
+  let local = false, snapshot = {};   // the Pages site: no database; the choices live in this browser
+  const KEY = 'legendLocations.assign.v1';
+  const KEY_REMOVED = 'legendLocations.removed.v1';
+  let removed = new Set(), snapRemoved = [];
+  const KEY_TILES = 'legendLocations.tiles.v1';
+  let tiles = {}, snapTiles = {};   // place id -> [x, z]: the exact square the owner moved its spot to  // places taken off the list (the owner's), kept so they can come back
+  const filter = { region: '', kind: '', set: '', q: '' };
+  const $ = (id) => document.getElementById(id);
+  const status = (t, err) => { const s = $('status'); s.textContent = t; s.classList.toggle('err', !!err); };
+  const where = () => { const w = {}; for (const [id, list] of Object.entries(assign)) for (const sp of list) w[sp] = id; return w; };
+  const mon = (sp) => ROSTER.find((m) => m.species === sp);
+  const icon = (sp, cls) => { const m = mon(sp); return m && m.icon ? `<img class="${cls || ''}" src="icons/${sp.toLowerCase()}.png" alt="" width="36" height="36">` : ''; };
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  function renderRoster() {
+    const w = where();
+    let html = '', chron = '';
+    for (const m of ROSTER) {
+      if (m.chronicle !== chron) { chron = m.chronicle; html += `<h2>${esc(chron)}</h2>`; }
+      const at = w[m.species];
+      const line = at ? `<span class="w set">Set: ${esc(byId[at] ? byId[at].place : at)} (${at})</span>` : `<span class="w">Not set · now ${esc(m.now)}</span>`;
+      html += `<button type="button" class="mon${brush === m.species ? ' sel' : ''}" data-sp="${m.species}" aria-pressed="${brush === m.species}">${icon(m.species)}<span><span class="n">${esc(m.name)}</span><br>${line}</span></button>`;
+    }
+    $('roster').innerHTML = html;
+    const n = Object.keys(w).length;
+    $('nSet').textContent = n; $('nLeft').textContent = ROSTER.length - n;
+    $('brush').innerHTML = brush ? `Placing <b>${esc(mon(brush).name)}</b>: press Set here on a card` : '';
+  }
+
+  function options(id) {
+    const w = where();
+    let html = '<option value="">Set a Pokémon…</option>', chron = '';
+    for (const m of ROSTER) {
+      if (m.chronicle !== chron) { if (chron) html += '</optgroup>'; chron = m.chronicle; html += `<optgroup label="${esc(chron)}">`; }
+      const at = w[m.species];
+      if (at === id) continue;
+      html += `<option value="${m.species}">${esc(m.name)}${at ? ' (move from ' + at + ')' : ''}</option>`;
+    }
+    return html + '</optgroup>';
+  }
+
+  function visible(r) {
+    const taken = (assign[r.id] || []).length > 0;
+    if ((filter.set === 'removed') !== removed.has(r.id)) return false;  // removed places show only under Removed
+    if (filter.region && r.region !== filter.region) return false;
+    if (filter.kind && r.kind !== filter.kind) return false;
+    if (filter.set === 'open' && taken) return false;
+    if (filter.set === 'taken' && !taken) return false;
+    if (filter.q) { const t = (r.place + ' ' + r.caption + ' ' + r.id + ' ' + (assign[r.id] || []).join(' ')).toLowerCase(); if (!t.includes(filter.q)) return false; }
+    return true;
+  }
+
+  // the exact spot: the place's own tile, or the one the owner moved it to (tiles: place id -> [x, z])
+  const spotOf = (r) => tiles[r.id] || [r.x, r.z];
+  const moved = (r) => !!tiles[r.id] && (tiles[r.id][0] !== r.x || tiles[r.id][1] !== r.z);
+  // a dashed square on the picture at the moved spot: the ring's centre plus 24 pixels (of 384 by 288) a square
+  const mark = (r) => {
+    if (!moved(r) || !r.ring) return '';
+    const [x, z] = tiles[r.id], left = (r.ring[0] + (x - r.x) * 24 / 384) * 100, top = (r.ring[1] + (z - r.z) * 24 / 288) * 100;
+    return left < 0 || left > 100 || top < 0 || top > 100 ? '' : `<span class="mark" style="left:${left.toFixed(2)}%;top:${top.toFixed(2)}%" aria-hidden="true"></span>`;
+  };
+  function nudge(id, d) {
+    if (!canWrite) return;
+    const r = byId[id];
+    let next = null;
+    if (d !== 'reset') { const [dx, dz] = d.split(',').map(Number), [x, z] = spotOf(r); next = [x + dx, z + dz]; }
+    if (next && next[0] === r.x && next[1] === r.z) next = null;
+    if (next) tiles[id] = next; else delete tiles[id];
+    render();
+    queue(async () => {
+      await putTile(id, next);
+      status(next ? `Saved: the spot at ${r.place} (${id}) is now (${next.join(', ')})` : `Saved: ${r.place} (${id}) back to its own spot`);
+    });
+  }
+  async function putTile(id, xz) {
+    if (local) {
+      try { localStorage.setItem(KEY_TILES, JSON.stringify(tiles)); } catch (e) { status('This browser would not keep that: copy your choices before leaving the page.', true); }
+      localNote();
+      return;
+    }
+    const ref = db.doc('tiles/' + id);
+    if (xz) await ref.set({ x: xz[0], z: xz[1], at: new Date().toISOString() });
+    else await ref.delete();
+  }
+  function renderGrid() {
+    const rows = LOC.filter(visible);
+    $('empty').hidden = rows.length > 0;
+    $('grid').innerHTML = rows.map((r) => {
+      const list = assign[r.id] || [];
+      const reg = r.region === 'Sinnoh' ? 'Sinnoh' : 'Johto';
+      const chips = list.map((sp) => `<span class="chip">${icon(sp)}${esc(mon(sp) ? mon(sp).name : sp)}${canWrite ? `<button type="button" data-clear="${r.id}" data-sp="${sp}" aria-label="Take ${esc(mon(sp) ? mon(sp).name : sp)} away">×</button>` : ''}</span>`).join('');
+      const gone = removed.has(r.id);
+      const actions = !canWrite ? '' : gone
+        ? `<div class="actions"><button type="button" class="here" data-restore="${r.id}">Put it back on the list</button></div>`
+        : `<div class="actions"><select id="sel-${r.id}" data-loc="${r.id}" aria-label="Set a Pokémon at ${esc(r.place)}">${options(r.id)}</select>${brush ? `<button type="button" class="here" data-here="${r.id}">Set here</button>` : ''}<button type="button" class="remove" data-remove="${r.id}" aria-label="Remove ${esc(r.place)} (${r.id}) from the list">Remove</button></div>`;
+      return `<article class="card${list.length ? ' has' : ''}${gone ? ' gone' : ''}">
+        <div class="shot">${r.shot ? `<img src="shots/${r.id}.jpg" alt="${esc(r.place)}, the spot ringed in yellow" loading="lazy" width="384" height="288">` : '<span class="none">No picture yet</span>'}${mark(r)}
+          <span class="id">${r.id}</span><span class="kind ${r.kind.replace(' ', '-')}">${esc(r.kind)}</span></div>
+        <div class="body">
+          <div class="place"><b>${esc(r.place)}</b><span class="reg ${reg}">${r.region === 'Sinnoh' ? 'Sinnoh' : 'Johto/Kanto'}</span></div>
+          <p class="cap">${esc(r.caption)}</p>
+          <div class="spot"><span class="tile">${esc(r.map)} (${spotOf(r).join(', ')})</span>${moved(r) ? `<span class="moved">moved from (${r.x}, ${r.z})</span>` : ''}
+            ${canWrite && !gone ? `<span class="nudge" role="group" aria-label="Move the exact spot at ${esc(r.place)}"><button type="button" data-nudge="${r.id}" data-d="-1,0" aria-label="One square left">←</button><button type="button" data-nudge="${r.id}" data-d="0,-1" aria-label="One square up">↑</button><button type="button" data-nudge="${r.id}" data-d="0,1" aria-label="One square down">↓</button><button type="button" data-nudge="${r.id}" data-d="1,0" aria-label="One square right">→</button>${moved(r) ? `<button type="button" class="reset" data-nudge="${r.id}" data-d="reset">Reset</button>` : ''}</span>` : ''}</div>
+          ${chips ? `<div class="chips">${chips}</div>` : ''}
+          ${actions}
+        </div></article>`;
+    }).join('');
+  }
+
+  let REF = [], refRegion = '';
+  // a picture from a sheet (legend_locations_page.py's Sheet): [file, column, row, columns, rows]
+  const tile = (t, alt, cls) => `<span class="pic${cls ? ' ' + cls : ''}" role="img" aria-label="${esc(alt)}" style="background-image:url(${t[0]});background-size:${t[3] * 100}% ${t[4] * 100}%;background-position:${t[3] > 1 ? t[1] / (t[3] - 1) * 100 : 0}% ${t[4] > 1 ? t[2] / (t[4] - 1) * 100 : 0}%"></span>`;
+  let PROPS = [];
+  function renderProps() {
+    if (!PROPS.length) { $('props').hidden = true; return; }
+    $('propsCount').textContent = `(${PROPS.length})`;
+    const now = where();
+    const home = {}; for (const g of GAME) home[g.species] = g.place;
+    const who = (id, sp) => (assign[id] || []).filter((s) => s !== sp).map((s) => mon(s) ? mon(s).name : s);
+    renderPlan(now);
+    const VERDICT = { Keep: 'keep', Your: 'keep' };
+    $('propsList').innerHTML = PROPS.map((p) => {
+      const at = now[p.species], orig = home[p.species];
+      const word = (p.why_now.split(':')[0] || '').split(' ')[0];
+      const opened = openProps.has(p.species);
+      const cur = `<figure class="${at === orig ? 'on' : ''}">${(GAME.find((g) => g.species === p.species) || {}).shot ? tile(GAME.find((g) => g.species === p.species).shot, p.name + ' where it is now') : ''}
+        <figcaption><span class="tag">Now${orig ? ' · ' + orig : ''}</span>${orig && byId[orig] ? esc(byId[orig].caption) : ''}
+        ${canWrite && orig && at !== orig ? `<button type="button" class="btn" data-use="${p.species}" data-at="${orig}">Keep</button>` : ''}</figcaption></figure>`;
+      const opts = !opened ? '' : p.options.map((o) => {
+        const others = who(o.place, p.species);
+        return `<figure class="${at === o.place ? 'on' : ''}">${o.shot ? tile(o.shot, p.name + ' at ' + o.caption) : ''}
+        <figcaption><span class="tag">${o.rank ? '#' + o.rank + ' · ' : ''}${o.place}</span><b>${esc(o.caption)}</b>${esc(o.why)}${o.but ? `<span class="but">But: ${esc(o.but)}</span>` : ''}${others.length ? `<span class="warn">Now here: ${others.map(esc).join(', ')}</span>` : ''}
+        ${canWrite ? (at === o.place ? '<span class="tag">Chosen</span>' : `<button type="button" class="btn" data-use="${p.species}" data-at="${o.place}">Use this</button>`) : ''}</figcaption></figure>`;
+      }).join('');
+      const chosen = at && at !== orig ? ` · <b>moved to ${esc(at)}</b>` : '';
+      return `<details class="prop" data-prop="${p.species}"${opened ? ' open' : ''}><summary>${p.icon ? `<img src="icons/${p.species.toLowerCase()}.png" alt="" width="28" height="28">` : ''}${esc(p.name)}
+        <span class="verdict ${VERDICT[word] || ''}">${esc(word === 'Your' ? 'Your pick' : word)}</span><span class="muted">${esc(p.chronicle || '')}${orig && byId[orig] ? ' · now ' + esc(byId[orig].place) : ''}${chosen}</span></summary>
+        <p class="why">${esc(p.why_now)}</p>${opened ? `<div class="opts">${cur}${opts}</div>` : ''}</details>`;
+    }).join('');
+  }
+  const openProps = new Set();
+  document.addEventListener('toggle', (e) => {
+    const d = e.target;
+    if (!d.matches || !d.matches('details.prop')) return;
+    const sp = d.dataset.prop;
+    if (d.open === openProps.has(sp)) return;
+    if (d.open) openProps.add(sp); else openProps.delete(sp);
+    renderProps();
+  }, true);
+  let PLAN = {}, planArmed = false;
+  function renderPlan(now) {
+    const sps = Object.keys(PLAN);
+    if (!sps.length) { $('plan').hidden = true; return; }
+    const home = {}; for (const g of GAME) home[g.species] = g.place;
+    const rows = sps.map((sp) => {
+      const v = PLAN[sp], m = mon(sp), stays = v.place === home[sp];
+      return `<tr><td>${m && m.icon ? `<img src="icons/${sp.toLowerCase()}.png" alt="">` : ''} ${esc(m ? m.name : sp)}</td>
+        <td>${stays ? '<span class="stays">stays</span>' : '#' + v.rank}</td>
+        <td>${esc(v.place)} ${byId[v.place] ? esc(byId[v.place].caption) : ''}${v.note ? `<br><span class="stays">${esc(v.note)}</span>` : ''}</td>
+        <td>${now[sp] === v.place ? '✓' : ''}</td></tr>`;
+    }).join('');
+    const moves = sps.filter((sp) => PLAN[sp].place !== home[sp]).length;
+    const done = sps.filter((sp) => now[sp] === PLAN[sp].place).length;
+    $('plan').innerHTML = `<h3 style="margin:4px 0 4px;font-size:15px">Claude's full plan</h3>
+      <p class="lede" style="margin:0 0 8px">One place for every Pokémon at once, no two on a spot: the best of each one's ten that leaves no clashes, read over by hand (notes say what was changed and why). ${moves} move, ${sps.length - moves} stay where you have them. ✓: where your choice already is.</p>
+      <div class="wrap"><table><thead><tr><th>Pokémon</th><th>Choice</th><th>Place</th><th>Set</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${canWrite ? `<div class="bar"><button type="button" id="usePlan" class="${planArmed ? 'confirm' : ''}">${planArmed ? 'Press again to move all ' + moves : 'Use the whole plan'}</button>${planArmed ? '<button type="button" id="cancelPlan">Cancel</button>' : ''}<span class="muted">${done} of ${sps.length} set as the plan has them</span></div>` : ''}`;
+  }
+  function usePlan() {
+    if (!planArmed) { planArmed = true; renderProps(); return; }
+    planArmed = false;
+    for (const sp of Object.keys(PLAN)) setAt(sp, PLAN[sp].place);
+  }
+  let GAME = [];
+  function renderGame() {
+    $('gameCount').textContent = `(${GAME.length})`;
+    $('gameGrid').innerHTML = GAME.map((m) => `<figure>${m.shot ? tile(m.shot, m.name + ' on its spot') : ''}
+      <figcaption><b>${m.icon ? `<img src="icons/${m.species.toLowerCase()}.png" alt="" width="24" height="24">` : ''}${esc(m.name)}</b> <span class="muted">Lv. ${m.level}${m.place ? ' · ' + esc(m.place) : ''}</span>
+      ${esc(m.where)}${m.unlock.length ? `<span class="muted">Needs: ${m.unlock.map(esc).join('; ')}</span>` : '<span class="muted">Needs nothing</span>'}</figcaption></figure>`).join('');
+  }
+  function renderRef() {
+    $('refCount').textContent = `(${REF.length})`;
+    $('refRows').innerHTML = REF.filter((m) => !refRegion || String(m.region).includes(refRegion)).map((m) =>
+      `<tr><td class="rmon"><span class="m">${m.icon ? `<img src="icons/${m.species.toLowerCase()}.png" alt="" width="32" height="32">` : ''}${esc(m.name)} <span class="muted">#${m.dex || ''}</span></span></td>
+        <td>${esc(m.region)}</td><td>${esc(m.where)}${m.postgame ? '<span class="post">postgame</span>' : ''}</td><td class="how muted">${esc(m.how)}</td>
+        <td class="pic">${m.shot ? tile(m.shot, 'Where ' + m.name + ' is met, ringed in yellow', 'small') : '<span class="muted">—</span>'}</td></tr>`).join('');
+  }
+
+  function render() { renderRoster(); renderGrid(); renderProps(); $('nPlaces').textContent = LOC.length - removed.size; }
+
+  let busy = Promise.resolve();
+  function queue(fn) { busy = busy.then(fn).catch((e) => status('Could not save: ' + (e && e.message ? e.message : e) + '. Try again.', true)); return busy; }
+
+  function same(a, b) { return JSON.stringify(sorted(a)) === JSON.stringify(sorted(b)); }
+  function sortedObj(o) { const out = {}; for (const k of Object.keys(o).sort()) out[k] = o[k]; return out; }
+  function sorted(o) { const out = {}; for (const k of Object.keys(o).sort()) if ((o[k] || []).length) out[k] = o[k].slice().sort(); return out; }
+  function localNote() {
+    if (!local) return;
+    const unchanged = same(assign, snapshot) && JSON.stringify([...removed].sort()) === JSON.stringify(snapRemoved.slice().sort())
+      && JSON.stringify(sortedObj(tiles)) === JSON.stringify(sortedObj(snapTiles));
+    $('localNote').textContent = unchanged ? 'Nothing changed from the saved choices.' : 'Your changes are kept in this browser.';
+  }
+  function choicesText() {
+    const lines = ['Legendary Locations: my choices'];
+    const from = (r) => moved(r) ? ` (moved from ${r.x},${r.z})` : '';
+    for (const r of LOC) for (const sp of (assign[r.id] || [])) lines.push(`${r.id} ${r.map} ${spotOf(r).join(',')}: ${sp} (${mon(sp) ? mon(sp).name : sp} at ${r.place})${from(r)}`);
+    if (lines.length === 1) lines.push('(none set)');
+    const bare = LOC.filter((r) => moved(r) && !(assign[r.id] || []).length);
+    if (bare.length) lines.push('Spots moved (no Pokémon set): ' + bare.map((r) => `${r.id} ${r.map} ${spotOf(r).join(',')}${from(r)}`).join('; '));
+    if (removed.size) lines.push('Removed: ' + [...removed].sort().join(', '));
+    return lines.join('\n');
+  }
+  // the same as a file: data/complete/legend_assignments.json's shape, with the moved spots (apply_legend_choices.py)
+  function choicesJSON() {
+    const a = {}; for (const [id, list] of Object.entries(assign)) if (list && list.length) a[id] = list.slice();
+    const t = {}; for (const r of LOC) if (moved(r)) t[r.id] = spotOf(r).slice();
+    return JSON.stringify({ at: new Date().toISOString().slice(0, 10), assignments: a, removed: [...removed].sort(), tiles: t }, null, 1) + '\n';
+  }
+  async function exportChoices() {
+    const name = `legend_choices_${new Date().toISOString().slice(0, 10)}.json`, text = choicesJSON();
+    if (window.claude) {
+      const dl = await window.claude.use('downloads').catch(() => null);
+      if (dl) {
+        try { await dl.save({ filename: name, data: text }); status('Exported ' + name + '.'); }
+        catch (e) { status(e && e.code === 'declined' ? 'Export cancelled.' : 'The file could not be saved here: the text is below to copy.', !(e && e.code === 'declined')); if (!(e && e.code === 'declined')) showText(text); }
+        return;
+      }
+      showText(text); status('Saving files is not available here: the text is below to copy.'); return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    const a = document.createElement('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    status('Exported ' + name + '.');
+  }
+  function showText(text) { const box = $('copyText'); box.value = text; box.hidden = false; box.focus(); box.select(); }
+  async function put(id, list) {
+    if (local) {
+      try { localStorage.setItem(KEY, JSON.stringify(assign)); } catch (e) { status('This browser would not keep the choice: copy your choices before leaving the page.', true); }
+      localNote();
+      return;
+    }
+    const ref = db.doc('assignments/' + id);
+    if (list.length) await ref.set({ species: list, at: new Date().toISOString() });
+    else await ref.delete();
+  }
+
+  async function putRemoved(id, on) {
+    if (local) {
+      try { localStorage.setItem(KEY_REMOVED, JSON.stringify([...removed])); } catch (e) { status('This browser would not keep that: copy your choices before leaving the page.', true); }
+      localNote();
+      return;
+    }
+    const ref = db.doc('removed/' + id);
+    if (on) await ref.set({ at: new Date().toISOString() });
+    else await ref.delete();
+  }
+
+  function removeAt(id) {
+    if (!canWrite || removed.has(id)) return;
+    const list = assign[id] || [];
+    const names = list.map((sp) => (mon(sp) ? mon(sp).name : sp)).join(' and ');
+    if (list.length && !confirm(`${names} ${list.length > 1 ? 'are' : 'is'} set at ${byId[id].place} (${id}). Remove the place and take ${list.length > 1 ? 'them' : 'it'} off it?`)) return;
+    queue(async () => {
+      status('Saving…');
+      if (list.length) { assign[id] = []; await put(id, []); }
+      removed.add(id); await putRemoved(id, true);
+      render(); status(`Removed ${byId[id].place} (${id}). Show: Removed lists it, to put it back.`);
+    });
+  }
+
+  function restoreAt(id) {
+    if (!canWrite || !removed.has(id)) return;
+    queue(async () => {
+      status('Saving…');
+      removed.delete(id); await putRemoved(id, false);
+      render(); status(`${byId[id].place} (${id}) is back on the list.`);
+    });
+  }
+
+  function setAt(sp, id) {
+    if (!canWrite) return;
+    queue(async () => {
+      status('Saving…');
+      const from = where()[sp];
+      if (from === id) { status('Saved'); return; }
+      if (from) { const rest = (assign[from] || []).filter((s) => s !== sp); assign[from] = rest; await put(from, rest); }
+      const list = (assign[id] || []).concat(sp); assign[id] = list; await put(id, list);
+      render(); status(`Saved: ${mon(sp).name} at ${byId[id].place} (${id})`);
+    });
+  }
+
+  function clearAt(sp, id) {
+    if (!canWrite) return;
+    queue(async () => {
+      status('Saving…');
+      const list = (assign[id] || []).filter((s) => s !== sp); assign[id] = list; await put(id, list);
+      render(); status(`Saved: ${mon(sp).name} taken away from ${id}`);
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.sp && b.classList.contains('mon')) { brush = brush === b.dataset.sp ? null : b.dataset.sp; render(); return; }
+    if (b.dataset.clear) { clearAt(b.dataset.sp, b.dataset.clear); return; }
+    if (b.dataset.use) { setAt(b.dataset.use, b.dataset.at); return; }
+    if (b.id === 'usePlan') { usePlan(); return; }
+    if (b.id === 'cancelPlan') { planArmed = false; renderProps(); return; }
+    if (b.dataset.nudge) { nudge(b.dataset.nudge, b.dataset.d); return; }
+    if (b.dataset.remove) { removeAt(b.dataset.remove); return; }
+    if (b.dataset.restore) { restoreAt(b.dataset.restore); return; }
+    if (b.dataset.here && brush) { const sp = brush; brush = null; setAt(sp, b.dataset.here); return; }
+    const group = b.closest('.seg');
+    if (group && group.id === 'refRegion') {
+      for (const x of group.querySelectorAll('button')) x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      refRegion = b.dataset.v; renderRef(); return;
+    }
+    if (group) {
+      for (const x of group.querySelectorAll('button')) x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      filter[{ fRegion: 'region', fKind: 'kind', fSet: 'set' }[group.id]] = b.dataset.v; renderGrid();
+    }
+  });
+  document.addEventListener('change', (e) => { const s = e.target; if (s.dataset && s.dataset.loc && s.value) setAt(s.value, s.dataset.loc); });
+  $('q').addEventListener('input', (e) => { filter.q = e.target.value.trim().toLowerCase(); renderGrid(); });
+
+  async function start() {
+    try {
+      [LOC, ROSTER] = await Promise.all([fetch('locations.json').then((r) => r.json()), fetch('roster.json').then((r) => r.json())]);
+    } catch (e) { status('The list of places did not load. Reload the page.', true); return; }
+    for (const r of LOC) byId[r.id] = r;
+    try { REF = await fetch('reference.json').then((r) => r.json()); } catch (e) { REF = []; }
+    try { GAME = await fetch('game.json').then((r) => r.json()); } catch (e) { GAME = []; }
+    try { PROPS = await fetch('proposals.json').then((r) => r.json()); } catch (e) { PROPS = []; }
+    try { PLAN = await fetch('plan.json').then((r) => r.json()); } catch (e) { PLAN = {}; }
+    renderGame();
+    renderRef();
+    $('nPlaces').textContent = LOC.length;
+    render();
+    const timer = setTimeout(() => status('Saved choices are taking a while to load; the places are shown without them.', true), 10000);
+    if (!window.claude) { clearTimeout(timer); return startLocal(); }
+    try { db = await window.claude.use('db'); } catch (e) { db = null; }
+    let user = null;
+    try { user = await window.claude.use('user'); } catch (e) { user = null; }
+    canWrite = !!db && (user ? (user.can('data.write') !== false) : true);
+    if (!db) { clearTimeout(timer); return startLocal(); }
+    db.collection('assignments').onSnapshot((snap) => {
+      clearTimeout(timer);
+      const next = {};
+      for (const d of snap.docs) { const v = d.data(); if (v && Array.isArray(v.species) && v.species.length) next[d.id] = v.species.slice(); }
+      assign = next; render();
+      status(canWrite ? 'Choices are saved as you make them.' : 'You can look, but only the owner can set Pokémon.');
+    }, (err) => { clearTimeout(timer); status('Saved choices did not load (' + (err && err.code ? err.code : 'error') + ').', true); });
+    db.collection('removed').onSnapshot((snap) => {
+      removed = new Set(snap.docs.map((d) => d.id).filter((id) => byId[id]));
+      render();
+    }, () => {});
+    db.collection('tiles').onSnapshot((snap) => {
+      const next = {};
+      for (const d of snap.docs) { const v = d.data(); if (byId[d.id] && v && Number.isInteger(v.x) && Number.isInteger(v.z)) next[d.id] = [v.x, v.z]; }
+      tiles = next; render();
+    }, () => {});
+  }
+  function cleanTiles(t) {
+    const out = {};
+    for (const [id, xz] of Object.entries(t || {})) if (byId[id] && Array.isArray(xz) && xz.length === 2 && xz.every(Number.isInteger)) out[id] = [xz[0], xz[1]];
+    return out;
+  }
+  async function startLocal() {
+    local = true; canWrite = true;
+    try {
+      const snap = await fetch('assignments.json', { cache: 'no-cache' }).then((r) => r.ok ? r.json() : null);
+      if (snap) { snapshot = snap.assignments || {}; snapRemoved = (snap.removed || []).filter((id) => byId[id]); snapTiles = cleanTiles(snap.tiles); if (snap.at) $('snapAt').textContent = snap.at; }
+    } catch (e) { /* no snapshot: start empty */ }
+    let mine = null;
+    try { mine = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) { mine = null; }
+    assign = mine && typeof mine === 'object' ? mine : JSON.parse(JSON.stringify(snapshot));
+    for (const k of Object.keys(assign)) if (!byId[k] || !Array.isArray(assign[k])) delete assign[k];
+    let mineRemoved = null;
+    try { mineRemoved = JSON.parse(localStorage.getItem(KEY_REMOVED) || 'null'); } catch (e) { mineRemoved = null; }
+    removed = new Set((Array.isArray(mineRemoved) ? mineRemoved : snapRemoved).filter((id) => byId[id]));
+    let mineTiles = null;
+    try { mineTiles = JSON.parse(localStorage.getItem(KEY_TILES) || 'null'); } catch (e) { mineTiles = null; }
+    tiles = cleanTiles(mineTiles && typeof mineTiles === 'object' ? mineTiles : snapTiles);
+    $('localText').hidden = false; $('reset').hidden = false;
+    render(); localNote();
+    status('Choices are kept in this browser as you make them.');
+  }
+  $('export').addEventListener('click', () => { exportChoices(); });
+  $('copy').addEventListener('click', async () => {
+    const text = choicesText();
+    const box = $('copyText');
+    box.value = text; box.hidden = false;
+    try { await navigator.clipboard.writeText(text); status('Copied. Paste it to Claude in the chat.'); }
+    catch (e) { box.focus(); box.select(); status('Select the text below and copy it (the browser would not copy it by itself).'); }
+  });
+  $('reset').addEventListener('click', () => {
+    if (!confirm('Drop your changes in this browser and go back to the saved choices?')) return;
+    try { localStorage.removeItem(KEY); localStorage.removeItem(KEY_REMOVED); localStorage.removeItem(KEY_TILES); } catch (e) {}
+    assign = JSON.parse(JSON.stringify(snapshot)); removed = new Set(snapRemoved); tiles = cleanTiles(snapTiles); $('copyText').hidden = true;
+    render(); localNote(); status('Back to the saved choices.');
+  });
+  start();
+})();
+</script>
+</body>
+</html>
